@@ -574,6 +574,71 @@ cdef class Solution:
             vals[name] = SCIPgetSolVal(self.scip, self.sol, scip_var)
         return str(vals)
     
+    def get_values_by_type(self):
+        cdef SCIP_VAR* scip_var
+
+        cont_vals = {}
+        bin_vals = {}
+        int_vals = {}
+
+        self._checkStage("SCIPgetSolVal")
+        vars = SCIPgetVars(self.scip)
+        for i in range(SCIPgetNVars(self.scip)):
+            scip_var = vars[i]
+
+            # extract name
+            cname = bytes(SCIPvarGetName(scip_var))
+            name = cname.decode('utf-8')
+
+            # extract variable type
+            typ = SCIPvarGetType(scip_var)
+            if typ == SCIP_VARTYPE_CONTINUOUS:
+                cont_vals[name] = SCIPgetSolVal(self.scip, self.sol, scip_var)
+            elif typ == SCIP_VARTYPE_BINARY:
+                bin_vals[name] = SCIPgetSolVal(self.scip, self.sol, scip_var)
+            else:
+                int_vals[name] = SCIPgetSolVal(self.scip, self.sol, scip_var)
+                
+        return str(cont_vals), str(bin_vals), str(int_vals)
+
+    def get_variable_global_bounds(self):
+        cdef SCIP_VAR* scip_var
+
+        cont_lb = {}
+        cont_ub = {}
+        int_lb = {}
+        int_ub = {}
+
+        self._checkStage("SCIPgetSolVal")
+        vars = SCIPgetVars(self.scip)
+        for i in range(SCIPgetNVars(self.scip)):
+            #print('cp0')
+            scip_var = vars[i]
+            #print('cp1')
+
+            # extract name
+            #print('cp2')
+            cname = bytes(SCIPvarGetName(scip_var))
+            #print('cp3')
+            name = cname.decode('utf-8')
+            #print('cp4')
+
+            # extract variable type
+            typ = SCIPvarGetType(scip_var)
+            #print('cp5')
+            #print('lb:', SCIPvarGetLbOriginal(scip_var))
+            #print('ub:', SCIPvarGetUbOriginal(scip_var))
+            #print('typ:', typ)
+            #print('name:', name)
+            if typ == SCIP_VARTYPE_CONTINUOUS:
+                cont_lb[name] = SCIPvarGetLbGlobal(scip_var)
+                cont_ub[name] = SCIPvarGetUbGlobal(scip_var)
+            elif typ == SCIP_VARTYPE_INTEGER:
+                int_lb[name] = SCIPvarGetLbGlobal(scip_var)
+                int_ub[name] = SCIPvarGetUbGlobal(scip_var)
+        #print('cp2') 
+        return str(cont_lb), str(cont_ub), str(int_lb), str(int_ub)
+
     def _checkStage(self, method):
         if method in ["SCIPgetSolVal", "getSolObjVal"]:
             if self.sol == NULL and not SCIPgetStage(self.scip) == SCIP_STAGE_SOLVING:
@@ -1304,6 +1369,39 @@ cdef class Model:
                 objective += coeff * var
         objective.normalize()
         return objective
+
+    def getObjectiveByType(self):
+        """Retrieve objective function as Expr"""
+        variables = self.getVars()
+        cont_objective = Expr()
+        bin_objective = Expr()
+        int_objective = Expr()
+        for var in variables:
+            # extract name
+            cname = bytes(SCIPvarGetName(var))
+            name = cname.decode('utf-8')
+
+            # extract variable type
+            typ = SCIPvarGetType(var)
+            if typ == SCIP_VARTYPE_CONTINUOUS:
+                coeff = var.getObj()
+                if coeff != 0:
+                    cont_objective += coeff * var
+
+            elif typ == SCIP_VARTYPE_BINARY:
+                coeff = var.getObj()
+                if coeff != 0:
+                    bin_objective += coeff * var
+
+            else:
+                coeff = var.getObj()
+                if coeff != 0:
+                    int_objective += coeff * var
+
+        cont_objective.normalize()
+        bin_objective.normalize()
+        int_objective.normalize()
+        return cont_objective, bin_objective, int_objective
 
     def addObjoffset(self, offset, solutions = False):
         """Add constant offset to objective
