@@ -1372,29 +1372,37 @@ cdef class Model:
 
     def getObjectiveByType(self):
         """Retrieve objective function as Expr"""
+        cdef SCIP_VAR* scip_var
+        
+        vars = SCIPgetVars(self._scip)
         variables = self.getVars()
         cont_objective = Expr()
         bin_objective = Expr()
         int_objective = Expr()
-        for var in variables:
+        #for var in variables:
+        for i, var in zip(range(SCIPgetNVars(self._scip)), variables):
+            scip_var = vars[i]
             # extract name
-            cname = bytes(SCIPvarGetName(var))
+            cname = bytes(SCIPvarGetName(scip_var))
             name = cname.decode('utf-8')
 
             # extract variable type
-            typ = SCIPvarGetType(var)
+            typ = SCIPvarGetType(scip_var)
             if typ == SCIP_VARTYPE_CONTINUOUS:
-                coeff = var.getObj()
+                #coeff = var.getObj()
+                coeff = SCIPvarGetObj(scip_var)
                 if coeff != 0:
                     cont_objective += coeff * var
 
             elif typ == SCIP_VARTYPE_BINARY:
-                coeff = var.getObj()
+                #coeff = var.getObj()
+                coeff = SCIPvarGetObj(scip_var)
                 if coeff != 0:
                     bin_objective += coeff * var
 
             else:
-                coeff = var.getObj()
+                #coeff = var.getObj()
+                coeff = SCIPvarGetObj(scip_var)
                 if coeff != 0:
                     int_objective += coeff * var
 
